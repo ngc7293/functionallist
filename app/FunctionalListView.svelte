@@ -217,7 +217,11 @@
     await load();
   }
 
-  onMount(load);
+  onMount(() => {
+    load();
+    const refreshInterval = setInterval(load, 5000);
+    return () => clearInterval(refreshInterval);
+  });
 </script>
 
 {#if loading}
@@ -308,7 +312,7 @@
               <span class="event-name">{ev.modification.displayNameBefore} → {ev.modification.displayNameAfter}</span>
             {:else if ev.modification.type === "check"}
               <span class="event-type">{ev.modification.checked ? "☑︎" : "☐"} </span>
-              <span class="event-name">{listItems.get(ev.itemId)!.displayName}</span>
+              <span class="event-name">{ev.modification.displayName}</span>
             {:else if ev.modification.type === "remove"}
               <span class="event-type">×</span>
               <span class="event-name">{ev.modification.displayName}</span>

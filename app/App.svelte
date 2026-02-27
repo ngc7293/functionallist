@@ -21,7 +21,13 @@
       window.history.replaceState({}, "", window.location.pathname.replace(/\/callback$/, "/"));
     }
     user = await userManager.getUser();
-    if (user) await loadLists();
+
+    if (user && user.expired) {
+      await userManager.signinRedirect()
+    }
+    if (user) {
+      await loadLists();
+    }
     loading = false;
   });
 
