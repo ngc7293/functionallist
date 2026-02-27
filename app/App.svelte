@@ -175,13 +175,16 @@
   }
 
   details.list-section > summary::after {
-    content: "›";
+    content: "‹";
+    text-align: center;
     font-size: 1.25rem;
     color: #a1a1aa;
     transition: transform 0.15s ease;
+    transform: translateY(-3px);
   }
+
   details.list-section[open] > summary::after {
-    transform: rotate(90deg);
+    transform: rotate(-90deg) translateY(-3px);
   }
 
   .create-form {

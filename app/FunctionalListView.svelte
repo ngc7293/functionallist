@@ -32,7 +32,12 @@
         }
       | {
           type: "check";
+          displayName: string;
           checked: boolean;
+        }
+      | {
+          type: "remove";
+          displayName: string;
         };
     occuredAt: number;
     userId: number;
@@ -77,34 +82,46 @@
           last_modified: ev.occuredAt,
         });
       } else {
-        if (ev.displayName && ev.displayName !== existing.displayName) {
+        if (ev.displayName === undefined && ev.checked === undefined) {
           compiledEvents.push({
             eventId: compiledEvents.length + 1,
             itemId: ev.itemId,
-            modification: {
-              type: "rename",
-              displayNameBefore: existing.displayName,
-              displayNameAfter: ev.displayName,
-            },
+            modification: { type: "remove", displayName: existing.displayName },
             occuredAt: ev.occuredAt,
             userId: ev.userId,
           });
-        } else if (ev.checked !== undefined && ev.checked !== existing.checked) {
-          compiledEvents.push({
-            eventId: compiledEvents.length + 1,
+          compiledItems.delete(ev.itemId);
+        } else {
+          if (ev.displayName && ev.displayName !== existing.displayName) {
+            compiledEvents.push({
+              eventId: compiledEvents.length + 1,
+              itemId: ev.itemId,
+              modification: {
+                type: "rename",
+                displayNameBefore: existing.displayName,
+                displayNameAfter: ev.displayName,
+              },
+              occuredAt: ev.occuredAt,
+              userId: ev.userId,
+            });
+          }
+          if (ev.checked !== undefined && ev.checked !== existing.checked) {
+            compiledEvents.push({
+              eventId: compiledEvents.length + 1,
+              itemId: ev.itemId,
+              modification: { type: "check", displayName: existing.displayName, checked: ev.checked },
+              occuredAt: ev.occuredAt,
+              userId: ev.userId,
+            });
+          }
+
+          compiledItems.set(ev.itemId, {
             itemId: ev.itemId,
-            modification: { type: "check", checked: ev.checked },
-            occuredAt: ev.occuredAt,
-            userId: ev.userId,
+            displayName: ev.displayName || existing.displayName,
+            checked: ev.checked !== undefined ? ev.checked : existing.checked,
+            last_modified: ev.occuredAt,
           });
         }
-
-        compiledItems.set(ev.itemId, {
-          itemId: ev.itemId,
-          displayName: ev.displayName || existing.displayName,
-          checked: ev.checked !== undefined ? ev.checked : existing.checked,
-          last_modified: ev.occuredAt,
-        });
       }
     }
 
@@ -253,6 +270,11 @@
             }}>{item.displayName}</span
           >
         {/if}
+        <button
+          class="delete-item"
+          tabindex="0"
+          onclick={() => postEvent(item.itemId, undefined, undefined)}>✖</button
+        >
       </li>
     {/each}
   </ul>
@@ -287,6 +309,9 @@
             {:else if ev.modification.type === "check"}
               <span class="event-type">{ev.modification.checked ? "☑︎" : "☐"} </span>
               <span class="event-name">{listItems.get(ev.itemId)!.displayName}</span>
+            {:else if ev.modification.type === "remove"}
+              <span class="event-type">×</span>
+              <span class="event-name">{ev.modification.displayName}</span>
             {/if}
           </div>
         </li>
@@ -365,6 +390,16 @@
     font-size: 1rem;
     border: 1px solid #a1a1aa;
     border-radius: 6px;
+  }
+
+  .delete-item {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: #a1a1aa;
   }
 
   .add-form {

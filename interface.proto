@@ -46,6 +46,16 @@ message FunctionalListListResponse {
   repeated FunctionalListMeta lists = 1;
 }
 
+// Adds an event to the list
+//
+// A request with (ItemID=null) is taken as "Create New Item". In this case
+// `display_name` is required and `checked` is ignored (set to false).
+//
+// A request with (ItemID=some value) is taken as "Update Existing Item" if
+// either `display_name` or `checked` is set.
+//
+// A request with (ItemID=some value) is taken as "Delete Existing Item" if
+// neither `display_name` nor `checked` is set.
 message FunctionalListEventCreateRequest {
   optional int64  item_id      = 1;
   optional string display_name = 2;
