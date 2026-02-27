@@ -22,9 +22,23 @@ dev = [
     "mypy-protobuf>=5.0.0",
 ]
 
-[tool.ruff]
-line-length = 120
-
 [tool.alembic]
 script_location = "%(here)s/server/schema"
 prepend_sys_path = "."
+
+[tool.ruff]
+line-length = 120
+
+[tool.pyright]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.venv",
+    "**/.git",
+    "**/build",
+    "**/.*",
+    "**/dist",
+    "**/*_pb2.py",
+    "**/*_pb2.pyi",
+]
+reportIncompatibleVariableOverride = false

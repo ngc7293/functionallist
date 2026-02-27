@@ -44,8 +44,8 @@ export interface FunctionalListCreateRequest {
 
 export interface FunctionalListUpdateRequest {
   id: number;
-  displayName: string;
-  description: string;
+  displayName?: string | undefined;
+  description?: string | undefined;
 }
 
 export interface FunctionalListListResponse {
@@ -365,13 +365,7 @@ export const FunctionalList: MessageFns<FunctionalList> = {
 };
 
 function createBaseFunctionalListEvent(): FunctionalListEvent {
-  return {
-    itemId: 0,
-    displayName: undefined,
-    checked: undefined,
-    occuredAt: 0,
-    userId: 0,
-  };
+  return { itemId: 0, displayName: undefined, checked: undefined, occuredAt: 0, userId: 0 };
 }
 
 export const FunctionalListEvent: MessageFns<FunctionalListEvent> = {
@@ -591,7 +585,7 @@ export const FunctionalListCreateRequest: MessageFns<FunctionalListCreateRequest
 };
 
 function createBaseFunctionalListUpdateRequest(): FunctionalListUpdateRequest {
-  return { id: 0, displayName: "", description: "" };
+  return { id: 0, displayName: undefined, description: undefined };
 }
 
 export const FunctionalListUpdateRequest: MessageFns<FunctionalListUpdateRequest> = {
@@ -599,10 +593,10 @@ export const FunctionalListUpdateRequest: MessageFns<FunctionalListUpdateRequest
     if (message.id !== 0) {
       writer.uint32(8).int64(message.id);
     }
-    if (message.displayName !== "") {
+    if (message.displayName !== undefined) {
       writer.uint32(18).string(message.displayName);
     }
-    if (message.description !== "") {
+    if (message.description !== undefined) {
       writer.uint32(26).string(message.description);
     }
     return writer;
@@ -655,8 +649,8 @@ export const FunctionalListUpdateRequest: MessageFns<FunctionalListUpdateRequest
         ? globalThis.String(object.displayName)
         : isSet(object.display_name)
           ? globalThis.String(object.display_name)
-          : "",
-      description: isSet(object.description) ? globalThis.String(object.description) : "",
+          : undefined,
+      description: isSet(object.description) ? globalThis.String(object.description) : undefined,
     };
   },
 
@@ -665,10 +659,10 @@ export const FunctionalListUpdateRequest: MessageFns<FunctionalListUpdateRequest
     if (message.id !== 0) {
       obj.id = Math.round(message.id);
     }
-    if (message.displayName !== "") {
+    if (message.displayName !== undefined) {
       obj.displayName = message.displayName;
     }
-    if (message.description !== "") {
+    if (message.description !== undefined) {
       obj.description = message.description;
     }
     return obj;
@@ -680,8 +674,8 @@ export const FunctionalListUpdateRequest: MessageFns<FunctionalListUpdateRequest
   fromPartial<I extends Exact<DeepPartial<FunctionalListUpdateRequest>, I>>(object: I): FunctionalListUpdateRequest {
     const message = createBaseFunctionalListUpdateRequest();
     message.id = object.id ?? 0;
-    message.displayName = object.displayName ?? "";
-    message.description = object.description ?? "";
+    message.displayName = object.displayName ?? undefined;
+    message.description = object.description ?? undefined;
     return message;
   },
 };
@@ -867,9 +861,7 @@ export type DeepPartial<T> = T extends Builtin
 type KeysOfUnion<T> = T extends T ? keyof T : never;
 export type Exact<P, I extends P> = P extends Builtin
   ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
-      [K in Exclude<keyof I, KeysOfUnion<P>>]: never;
-    };
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
 
 function longToNumber(int64: { toString(): string }): number {
   const num = globalThis.Number(int64.toString());

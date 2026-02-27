@@ -20,6 +20,7 @@ from .interface_pb2 import (
     FunctionalListEventCreateRequest,
     FunctionalListListResponse,
     FunctionalListMeta,
+    FunctionalListUpdateRequest,
     UserMeta,
 )
 from .settings import settings
@@ -144,6 +145,33 @@ async def get_list(list_id: int, user: UserModel = Depends(get_current_user)) ->
             ],
         ).SerializeToString(),
     )
+
+
+@app.put("/v1/lists/{list_id}")
+async def update_list(list_id: int, request: Request, user: UserModel = Depends(get_current_user)):
+    request_data: FunctionalListUpdateRequest = FunctionalListUpdateRequest.FromString(await request.body())
+
+    with database.session() as session:
+        query = select(ListModel).where(
+            col(ListModel.id) == list_id,
+            col(ListModel.users).any(col(UserModel.id) == user.id),
+        )
+
+        list_ = session.exec(query).one_or_none()
+
+        if list_ is None:
+            raise HTTPException(status_code=404)
+
+        if request_data.HasField("display_name"):
+            list_.display_name = request_data.display_name
+
+        if request_data.HasField("description"):
+            list_.description = request_data.description
+
+        session.add(list_)
+        session.commit()
+
+    return Response(status_code=204)
 
 
 @app.post("/v1/lists/{list_id}/events")

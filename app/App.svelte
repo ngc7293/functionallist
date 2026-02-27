@@ -63,7 +63,11 @@
 </script>
 
 {#if loading}
-  <p>Loading…</p>
+  <header>
+    <span></span>
+    <span>Loading</span>
+    <span></span>
+  </header>
 {:else if user}
   <div class="app">
     <header>

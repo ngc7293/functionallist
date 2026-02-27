@@ -1,7 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { apiFetch } from "./api";
-  import { FunctionalList, FunctionalListEvent, FunctionalListEventCreateRequest } from "./interface";
+  import {
+    FunctionalList,
+    FunctionalListEvent,
+    FunctionalListEventCreateRequest,
+    FunctionalListUpdateRequest,
+  } from "./interface";
 
   let { listId }: { listId: number } = $props();
 
@@ -165,6 +170,11 @@
     editValue = item.displayName;
   }
 
+  function startEditingDescription() {
+    editingItem = 0;
+    editValue = listData?.description || "";
+  }
+
   async function commitRename(itemId: number, oldName: string) {
     const newName = editValue.trim();
     editingItem = null;
@@ -173,14 +183,50 @@
     await postEvent(itemId, newName, undefined);
   }
 
+  async function commitDescription() {
+    const newDescription = editValue.trim();
+    editingItem = null;
+
+    if (!newDescription || newDescription === listData?.description) return;
+
+    const res = await apiFetch(`v1/lists/${listId}`, {
+      method: "PUT",
+      body: FunctionalListUpdateRequest.encode({
+        id: listId,
+        description: editValue.trim() || undefined,
+      }).finish(),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    await load();
+  }
+
   onMount(load);
 </script>
 
 {#if loading}
-  <p>Loading…</p>
+  <span class="description">Loading…</span>
 {:else if error}
-  <p>Error: {error}</p>
+  <span class="description">Error: {error}</span>
 {:else if listData}
+  {#if editingItem === 0}
+    <textarea
+      class="edit-description"
+      bind:value={editValue}
+      onblur={() => commitDescription()}
+      onkeydown={(e) => {
+        if (e.key === "Enter" && e.shiftKey === false) commitDescription();
+        if (e.key === "Escape") editingItem = null;
+      }}
+    ></textarea>
+  {:else}
+    <span
+      role="button"
+      tabindex="0"
+      class={`description ${listData.description.length ? "" : "empty"}`}
+      ondblclick={() => startEditingDescription()}
+      >{listData.description.length ? listData.description : "No description provided."}</span
+    >
+  {/if}
   <ul class="item-list">
     {#each sortItems(listItems) as item (item.itemId)}
       <li class="item-row" class:checked={item.checked}>
@@ -193,9 +239,7 @@
             onblur={() => commitRename(item.itemId, item.displayName)}
             onkeydown={(e) => {
               if (e.key === "Enter") commitRename(item.itemId, item.displayName);
-              if (e.key === "Escape") {
-                editingItem = null;
-              }
+              if (e.key === "Escape") editingItem = null;
             }}
           />
         {:else}
@@ -229,18 +273,22 @@
     <ol class="event-list">
       {#each listEvents as ev (ev.eventId)}
         <li class="event-row">
-          <time class="event-time">{formatDate(ev.occuredAt)}</time>
-          {#if ev.modification.type === "add"}
-            <span class="event-type">+</span>
-            <span class="event-name">{ev.modification.displayName}</span>
-          {:else if ev.modification.type === "rename"}
-            <span class="event-type">✎</span>
-            <span class="event-name">{ev.modification.displayNameBefore} → {ev.modification.displayNameAfter}</span>
-          {:else if ev.modification.type === "check"}
-            <span class="event-type">{ev.modification.checked ? "☑︎" : "☐"} </span>
-            <span class="event-name">{listItems.get(ev.itemId)!.displayName}</span>
-          {/if}
-          <span class="event-user">{listUsers.get(ev.userId)}</span>
+          <div class="event-row-meta">
+            <time class="event-time">{formatDate(ev.occuredAt)}</time>
+            <span class="event-user">{listUsers.get(ev.userId)}</span>
+          </div>
+          <div class="event-row-content">
+            {#if ev.modification.type === "add"}
+              <span class="event-type">+</span>
+              <span class="event-name">{ev.modification.displayName}</span>
+            {:else if ev.modification.type === "rename"}
+              <span class="event-type">✎</span>
+              <span class="event-name">{ev.modification.displayNameBefore} → {ev.modification.displayNameAfter}</span>
+            {:else if ev.modification.type === "check"}
+              <span class="event-type">{ev.modification.checked ? "☑︎" : "☐"} </span>
+              <span class="event-name">{listItems.get(ev.itemId)!.displayName}</span>
+            {/if}
+          </div>
         </li>
       {/each}
     </ol>
@@ -248,6 +296,33 @@
 {/if}
 
 <style>
+  .description {
+    display: inline-block;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    color: #52525b;
+    cursor: default;
+    user-select: none;
+    white-space: pre-wrap;
+  }
+  .description.empty {
+    font-style: italic;
+    color: #a1a1aa;
+  }
+
+  .edit-description {
+    display: block;
+    width: calc(100% - 2rem);
+    margin: 0.75rem 1rem;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.95rem;
+    font-family: inherit;
+    border: none;
+    border-bottom: 2px solid #a1a1aa;
+    resize: vertical;
+    min-height: 3rem;
+  }
+
   .item-list {
     list-style: none;
     padding: 0;
@@ -343,23 +418,69 @@
   }
   .event-row {
     display: grid;
-    grid-template-columns: 12em 0.75em 1fr auto auto;
+    grid-template-columns: 12em 0.75em 1fr auto;
     gap: 0.5rem;
     align-items: baseline;
     padding: 0.4rem 1rem;
     border-top: 1px solid #f4f4f5;
     color: #52525b;
   }
+  .event-row-meta,
+  .event-row-content {
+    display: contents;
+  }
+  /* Restore the DOM order: time(1), type(2), name(3), user(4) */
   .event-time {
+    order: 1;
     color: #a1a1aa;
     white-space: nowrap;
   }
+  .event-type {
+    order: 2;
+  }
   .event-name {
+    order: 3;
     font-weight: 500;
     word-break: break-word;
   }
   .event-user {
+    order: 4;
     color: #a1a1aa;
     white-space: nowrap;
+  }
+
+  @media (max-width: 511px) {
+    .event-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .event-row-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+    }
+    .event-row-content {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+    .event-time {
+      order: unset;
+    }
+    .event-type {
+      order: unset;
+      width: 1em;
+      flex-shrink: 0;
+    }
+    .event-name {
+      order: unset;
+      flex: 1;
+    }
+    .event-user {
+      order: unset;
+    }
   }
 </style>
