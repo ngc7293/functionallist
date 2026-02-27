@@ -1,0 +1,30 @@
+[project]
+name = "functionallist"
+version = "0.1.0"
+authors = [{ name = "David Bourgault", email = "dav.bour@gmail.com" }]
+requires-python = ">=3.14.0"
+dependencies = [
+    "alembic~=1.18",
+    "fastapi~=0.133",
+    "httpx~=0.28",
+    "hypercorn~=0.18",
+    "protobuf~=6.33",
+    "psycopg[binary]~=3.3",
+    "pydantic~=2.12",
+    "pydantic-settings~=2.13",
+    "pyjwt[crypto]~=2.11",
+    "sqlmodel~=0.0",
+]
+
+[dependency-groups]
+dev = [
+    "fastapi[standard]>=0.133.1",
+    "mypy-protobuf>=5.0.0",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.alembic]
+script_location = "%(here)s/server/schema"
+prepend_sys_path = "."

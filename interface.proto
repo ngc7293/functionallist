@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package functionalist;
+
+message UserMeta {
+  int64  id           = 1;
+  string display_name = 2;
+}
+
+message FunctionalListMeta {
+  int64  id           = 1;
+  string display_name = 2;
+  string description  = 3;
+}
+
+message FunctionalList {
+  int64                        id           = 1;
+  string                       display_name = 2;
+  string                       description  = 3;
+  repeated FunctionalListEvent events       = 10;
+  repeated UserMeta            users        = 11;
+}
+
+message FunctionalListEvent {
+  int64           item_id      = 1;
+  optional string display_name = 2;
+  optional bool   checked      = 3;
+
+    // Output only: the server always uses the receival time as the event time
+  int64 occured_at = 4;
+  int64 user_id = 5;
+}
+
+message FunctionalListCreateRequest {
+  string display_name = 2;
+  string description  = 3;
+}
+
+message FunctionalListUpdateRequest {
+  int64  id           = 1;
+  string display_name = 2;
+  string description  = 3;
+}
+
+message FunctionalListListResponse {
+  repeated FunctionalListMeta lists = 1;
+}
+
+message FunctionalListEventCreateRequest {
+  optional int64  item_id      = 1;
+  optional string display_name = 2;
+  optional bool   checked      = 3;
+}
