@@ -22,9 +22,6 @@
     }
     user = await userManager.getUser();
 
-    if (user && user.expired) {
-      await userManager.signinRedirect()
-    }
     if (user) {
       await loadLists();
     }

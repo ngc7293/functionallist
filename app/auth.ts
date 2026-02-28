@@ -15,7 +15,8 @@ function createUserManager(): Promise<UserManager> {
             authority: config.oidc_authority,
             client_id: config.oidc_client_id,
             redirect_uri: `${window.location}callback`,
-            scope: "openid profile email",
+            scope: "openid profile email offline_access",
+            automaticSilentRenew: true,
           }),
       );
   }
