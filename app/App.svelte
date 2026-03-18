@@ -17,14 +17,21 @@
     const userManager = await getUserManager();
 
     if (new URLSearchParams(window.location.search).has("code")) {
-      await userManager.signinRedirectCallback();
+      try {
+        // This can fail if you navigate directly to a /callback?code=... URL
+        // In this case, failure is acceptable and we will just show you the
+        // login page.
+        await userManager.signinRedirectCallback();
+      } catch {}
       window.history.replaceState({}, "", window.location.pathname.replace(/\/callback$/, "/"));
     }
+
     user = await userManager.getUser();
 
     if (user) {
       await loadLists();
     }
+
     loading = false;
   });
 

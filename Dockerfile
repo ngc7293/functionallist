@@ -12,8 +12,8 @@ RUN uv sync --locked --no-dev --no-cache --compile-bytecode
 FROM build-backend AS gather-libs
 
 RUN mkdir /libs && \
-    find /build/.venv -name '*.so*' \
-        | xargs ldd 2>/dev/null \
+    find /build/.venv -name '*.so*' -print0 \
+        | xargs -0 ldd 2>/dev/null \
         | awk '/=> \// { print $3 }' \
         | grep -v '/build/.venv' \
         | sort -u \
