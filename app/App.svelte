@@ -165,7 +165,10 @@
     background: #fff;
     border: 1px solid #d4d4d8;
     border-radius: 10px;
-    overflow: hidden;
+  }
+  details.list-section > :last-child {
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
   }
 
   details.list-section > summary {

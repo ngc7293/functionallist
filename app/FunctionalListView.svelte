@@ -50,6 +50,8 @@
   let listEvents = $state<ListEvent[]>([]);
 
   let newItemName = $state("");
+  let newItemNameSuggestions = $state<[number, string][]>([]);
+  let selectedSuggestionIndex = $state(-1);
   let editingItem = $state<number | null>(null);
   let editValue = $state("");
   let loading = $state(true);
@@ -172,10 +174,18 @@
   }
 
   async function addItem() {
+    if (selectedSuggestionIndex >= 0 && newItemNameSuggestions[selectedSuggestionIndex]) {
+      const [itemId] = newItemNameSuggestions[selectedSuggestionIndex];
+      selectedSuggestionIndex = -1;
+      await selectSuggestion(itemId);
+      return;
+    }
     const name = newItemName.trim();
     if (!name) return;
     await postEvent(undefined, name, false);
     newItemName = "";
+    newItemNameSuggestions = [];
+    selectedSuggestionIndex = -1;
   }
 
   async function toggleItem(item: ListItem) {
@@ -215,6 +225,37 @@
     });
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     await load();
+  }
+
+  async function suggestInput() {
+    selectedSuggestionIndex = -1;
+    if (newItemName === "") {
+      newItemNameSuggestions = [];
+      return;
+    }
+
+    let starswith: [number, string][] = [];
+    let includes:  [number, string][] = [];
+    
+    const needle = newItemName.toLocaleLowerCase();
+    for (const [_, item] of listItems) {
+      const haystack = item.displayName.toLocaleLowerCase();
+
+      if (haystack.startsWith(needle)) {
+        starswith.push([item.itemId, item.displayName]);
+      } else if (haystack.includes(needle)) {
+        includes.push([item.itemId, item.displayName]);
+      }
+    }
+
+    newItemNameSuggestions = [...starswith, ...includes];
+  }
+
+  async function selectSuggestion(itemId: number) {
+    newItemName = "";
+    newItemNameSuggestions = [];
+    selectedSuggestionIndex = -1;
+    await postEvent(itemId, undefined, false);
   }
 
   onMount(() => {
@@ -290,7 +331,42 @@
       addItem();
     }}
   >
-    <input class="add-input" type="text" bind:value={newItemName} placeholder="New item…" />
+    <div class="add-input-wrapper">
+      <input
+        class="add-input"
+        type="text"
+        bind:value={newItemName}
+        oninput={() => suggestInput()}
+        onkeydown={(e) => {
+          if (newItemNameSuggestions.length === 0) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, newItemNameSuggestions.length - 1);
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+          } else if (e.key === "Escape") {
+            newItemNameSuggestions = [];
+            selectedSuggestionIndex = -1;
+          }
+        }}
+        placeholder="New item…"
+      />
+      {#if newItemNameSuggestions.length !== 0}
+        <ul class="suggestion-list">
+          {#each newItemNameSuggestions as [itemId, displayName], i (itemId)}
+            <li>
+              <button
+                type="button"
+                class:highlighted={i === selectedSuggestionIndex}
+                onmouseenter={() => { selectedSuggestionIndex = i; }}
+                onclick={() => selectSuggestion(itemId)}
+              >{displayName}</button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
     <button type="submit">Add</button>
   </form>
 
@@ -411,15 +487,54 @@
     gap: 0.5rem;
     padding: 0.75rem 1rem;
   }
-  .add-input {
+  .add-input-wrapper {
+    position: relative;
     flex: 1;
+  }
+  .add-input {
+    width: 100%;
+    box-sizing: border-box;
     padding: 0.75rem;
     font-size: 1rem;
     border: 1px solid #d4d4d8;
     border-radius: 8px;
     min-height: 44px;
   }
-  .add-form button {
+  .suggestion-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0;
+    background: #fff;
+    border: 1px solid #d4d4d8;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  .suggestion-list li {
+    display: block;
+  }
+  .suggestion-list button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    background: none;
+    border: none;
+    border-radius: 0;
+    color: #18181b;
+    cursor: pointer;
+    font-weight: 400;
+    min-height: unset;
+  }
+  .suggestion-list button.highlighted {
+    background: #f4f4f5;
+  }
+  .add-form > button {
     padding: 0.75rem 1rem;
     font-size: 1rem;
     font-weight: 600;

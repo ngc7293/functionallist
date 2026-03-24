@@ -3,7 +3,7 @@ volumes:
 
 services:
   server:
-    image: ghcr.io/ngc7293/functionallist:0.1.0
+    image: ghcr.io/ngc7293/functionallist:latest
     ports:
       - "8000:8000"
     depends_on:

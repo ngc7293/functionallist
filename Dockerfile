@@ -2,12 +2,19 @@
 
 FROM ghcr.io/astral-sh/uv:0.10.6-debian-slim AS build-backend
 
+RUN apt-get update \
+    && apt-get install -y protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
-COPY pyproject.toml /build/pyproject.toml
-COPY uv.lock        /build/uv.lock
+COPY pyproject.toml  /build/pyproject.toml
+COPY uv.lock         /build/uv.lock
+COPY interface.proto /build/interface.proto
+COPY /server         /build/server
 
-RUN uv sync --locked --no-dev --no-cache --compile-bytecode
+RUN protoc --python_out=. interface.proto \
+    && uv sync --locked --no-dev --no-cache --compile-bytecode
 
 FROM build-backend AS gather-libs
 
@@ -28,10 +35,20 @@ COPY package-lock.json  /build/package-lock.json
 
 RUN npm install
 
-COPY vite.config.ts /build/vite.config.ts
-COPY tsconfig.json  /build/tsconfig.json
-COPY index.html     /build/index.html
-COPY app/           /build/app/
+COPY interface.proto /build/interface.proto
+
+RUN mkdir app \
+    && npx protoc \
+    --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto \
+    --ts_proto_out=app \
+    --ts_proto_opt=esModuleInterop=true,forceLong=number,useOptionals=messages \
+    --proto_path=. \
+    interface.proto
+
+COPY vite.config.ts  /build/vite.config.ts
+COPY tsconfig.json   /build/tsconfig.json
+COPY index.html      /build/index.html
+COPY app/            /build/app/
 
 RUN npm run build
 
@@ -47,8 +64,6 @@ COPY --from=build-backend /root        /root
 COPY --from=build-backend /build       /opt
 COPY --from=gather-libs   /libs        /usr/lib
 COPY --from=build-frontend /build/dist /opt/dist
-
-COPY /server /opt/server
 
 EXPOSE 8000/tcp
 ENTRYPOINT ["/opt/.venv/bin/python", "-m", "server"]
