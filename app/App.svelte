@@ -22,7 +22,9 @@
         // In this case, failure is acceptable and we will just show you the
         // login page.
         await userManager.signinRedirectCallback();
-      } catch {}
+      } catch {
+        // Ignore
+      }
       window.history.replaceState({}, "", window.location.pathname.replace(/\/callback$/, "/"));
     }
 
@@ -33,6 +35,10 @@
     }
 
     loading = false;
+
+    if (user === null) {
+      login();
+    }
   });
 
   async function loadLists() {

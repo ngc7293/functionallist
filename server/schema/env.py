@@ -16,5 +16,6 @@ def migrate() -> None:
             with context.begin_transaction():
                 context.run_migrations()
 
+
 configure_logging(settings.log_level)
 migrate()

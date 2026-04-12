@@ -235,8 +235,8 @@
     }
 
     let starswith: [number, string][] = [];
-    let includes:  [number, string][] = [];
-    
+    let includes: [number, string][] = [];
+
     const needle = newItemName.toLocaleLowerCase();
     for (const [_, item] of listItems) {
       const haystack = item.displayName.toLocaleLowerCase();
@@ -315,11 +315,7 @@
             }}>{item.displayName}</span
           >
         {/if}
-        <button
-          class="delete-item"
-          tabindex="0"
-          onclick={() => postEvent(item.itemId, undefined, undefined)}>✖</button
-        >
+        <button class="delete-item" tabindex="0" onclick={() => postEvent(item.itemId, undefined, undefined)}>✖</button>
       </li>
     {/each}
   </ul>
@@ -359,9 +355,11 @@
               <button
                 type="button"
                 class:highlighted={i === selectedSuggestionIndex}
-                onmouseenter={() => { selectedSuggestionIndex = i; }}
-                onclick={() => selectSuggestion(itemId)}
-              >{displayName}</button>
+                onmouseenter={() => {
+                  selectedSuggestionIndex = i;
+                }}
+                onclick={() => selectSuggestion(itemId)}>{displayName}</button
+              >
             </li>
           {/each}
         </ul>

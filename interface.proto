@@ -14,11 +14,26 @@ message FunctionalListMeta {
 }
 
 message FunctionalList {
-  int64                        id           = 1;
-  string                       display_name = 2;
-  string                       description  = 3;
-  repeated FunctionalListEvent events       = 10;
-  repeated UserMeta            users        = 11;
+  int64                             id           = 1;
+  string                            display_name = 2;
+  string                            description  = 3;
+  repeated FunctionalListEvent      events       = 10;
+  repeated UserMeta                 users        = 11;
+  optional FunctionalListCheckpoint checkpoint   = 12;
+}
+
+// In the database, lists are always stored as full append-only event logs, but
+// this waste network bandwidth in everyday usage if you don't need all events.
+message FunctionalListCheckpoint {
+  repeated FunctionalListCheckpointItem items = 1;
+
+  int64 until = 2; // Unix Timestamp
+}
+
+message FunctionalListCheckpointItem {
+  int64  item_id      = 1;
+  string display_name = 2;
+  bool   checked      = 3;
 }
 
 message FunctionalListEvent {
@@ -26,9 +41,9 @@ message FunctionalListEvent {
   optional string display_name = 2;
   optional bool   checked      = 3;
 
-    // Output only: the server always uses the receival time as the event time
-  int64 occured_at = 4;
-  int64 user_id = 5;
+  // Output only: the server always uses the receival time as the event time
+  int64 occured_at = 4; // Unix Timestamp
+  int64 user_id    = 5;
 }
 
 message FunctionalListCreateRequest {
@@ -37,7 +52,7 @@ message FunctionalListCreateRequest {
 }
 
 message FunctionalListUpdateRequest {
-  int64  id           = 1;
+  int64           id           = 1;
   optional string display_name = 2;
   optional string description  = 3;
 }

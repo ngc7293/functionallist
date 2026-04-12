@@ -13,7 +13,7 @@ COPY uv.lock         /build/uv.lock
 COPY interface.proto /build/interface.proto
 COPY /server         /build/server
 
-RUN protoc --python_out=. interface.proto \
+RUN protoc --python_out=server interface.proto \
     && uv sync --locked --no-dev --no-cache --compile-bytecode
 
 FROM build-backend AS gather-libs
@@ -26,7 +26,7 @@ RUN mkdir /libs && \
         | sort -u \
         | xargs cp -t /libs/
 
-FROM node:25.6.1-alpine AS build-frontend
+FROM node:25.9.0-alpine AS build-frontend
 
 WORKDIR /build
 

@@ -1,10 +1,10 @@
 import { getUserManager } from "./auth";
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  let user = await (await getUserManager()).getUser();
+  const user = await (await getUserManager()).getUser();
   if (!user?.access_token) throw new Error("Not authenticated");
 
-  let response = await fetch(`${path}`, {
+  const response = await fetch(`${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",

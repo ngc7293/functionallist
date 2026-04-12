@@ -31,9 +31,7 @@ export interface FunctionalList {
 export interface FunctionalListEvent {
   itemId: number;
   displayName?: string | undefined;
-  checked?:
-    | boolean
-    | undefined;
+  checked?: boolean | undefined;
   /** Output only: the server always uses the receival time as the event time */
   occuredAt: number;
   userId: number;
@@ -113,8 +111,8 @@ export const UserMeta: MessageFns<UserMeta> = {
       displayName: isSet(object.displayName)
         ? globalThis.String(object.displayName)
         : isSet(object.display_name)
-        ? globalThis.String(object.display_name)
-        : "",
+          ? globalThis.String(object.display_name)
+          : "",
     };
   },
 
@@ -204,8 +202,8 @@ export const FunctionalListMeta: MessageFns<FunctionalListMeta> = {
       displayName: isSet(object.displayName)
         ? globalThis.String(object.displayName)
         : isSet(object.display_name)
-        ? globalThis.String(object.display_name)
-        : "",
+          ? globalThis.String(object.display_name)
+          : "",
       description: isSet(object.description) ? globalThis.String(object.description) : "",
     };
   },
@@ -322,8 +320,8 @@ export const FunctionalList: MessageFns<FunctionalList> = {
       displayName: isSet(object.displayName)
         ? globalThis.String(object.displayName)
         : isSet(object.display_name)
-        ? globalThis.String(object.display_name)
-        : "",
+          ? globalThis.String(object.display_name)
+          : "",
       description: isSet(object.description) ? globalThis.String(object.description) : "",
       events: globalThis.Array.isArray(object?.events)
         ? object.events.map((e: any) => FunctionalListEvent.fromJSON(e))
@@ -451,24 +449,24 @@ export const FunctionalListEvent: MessageFns<FunctionalListEvent> = {
       itemId: isSet(object.itemId)
         ? globalThis.Number(object.itemId)
         : isSet(object.item_id)
-        ? globalThis.Number(object.item_id)
-        : 0,
+          ? globalThis.Number(object.item_id)
+          : 0,
       displayName: isSet(object.displayName)
         ? globalThis.String(object.displayName)
         : isSet(object.display_name)
-        ? globalThis.String(object.display_name)
-        : undefined,
+          ? globalThis.String(object.display_name)
+          : undefined,
       checked: isSet(object.checked) ? globalThis.Boolean(object.checked) : undefined,
       occuredAt: isSet(object.occuredAt)
         ? globalThis.Number(object.occuredAt)
         : isSet(object.occured_at)
-        ? globalThis.Number(object.occured_at)
-        : 0,
+          ? globalThis.Number(object.occured_at)
+          : 0,
       userId: isSet(object.userId)
         ? globalThis.Number(object.userId)
         : isSet(object.user_id)
-        ? globalThis.Number(object.user_id)
-        : 0,
+          ? globalThis.Number(object.user_id)
+          : 0,
     };
   },
 
@@ -558,8 +556,8 @@ export const FunctionalListCreateRequest: MessageFns<FunctionalListCreateRequest
       displayName: isSet(object.displayName)
         ? globalThis.String(object.displayName)
         : isSet(object.display_name)
-        ? globalThis.String(object.display_name)
-        : "",
+          ? globalThis.String(object.display_name)
+          : "",
       description: isSet(object.description) ? globalThis.String(object.description) : "",
     };
   },
@@ -650,8 +648,8 @@ export const FunctionalListUpdateRequest: MessageFns<FunctionalListUpdateRequest
       displayName: isSet(object.displayName)
         ? globalThis.String(object.displayName)
         : isSet(object.display_name)
-        ? globalThis.String(object.display_name)
-        : undefined,
+          ? globalThis.String(object.display_name)
+          : undefined,
       description: isSet(object.description) ? globalThis.String(object.description) : undefined,
     };
   },
@@ -807,13 +805,13 @@ export const FunctionalListEventCreateRequest: MessageFns<FunctionalListEventCre
       itemId: isSet(object.itemId)
         ? globalThis.Number(object.itemId)
         : isSet(object.item_id)
-        ? globalThis.Number(object.item_id)
-        : undefined,
+          ? globalThis.Number(object.item_id)
+          : undefined,
       displayName: isSet(object.displayName)
         ? globalThis.String(object.displayName)
         : isSet(object.display_name)
-        ? globalThis.String(object.display_name)
-        : undefined,
+          ? globalThis.String(object.display_name)
+          : undefined,
       checked: isSet(object.checked) ? globalThis.Boolean(object.checked) : undefined,
     };
   },
@@ -850,14 +848,19 @@ export const FunctionalListEventCreateRequest: MessageFns<FunctionalListEventCre
 
 type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
   : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
 
 function longToNumber(int64: { toString(): string }): number {

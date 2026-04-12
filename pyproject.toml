@@ -13,13 +13,18 @@ dependencies = [
     "pydantic~=2.12",
     "pydantic-settings~=2.13",
     "pyjwt[crypto]~=2.11",
+    "sqlalchemy>=2.0.47",
     "sqlmodel~=0.0",
+    "starlette>=0.52.1",
 ]
 
 [dependency-groups]
 dev = [
     "fastapi[standard]>=0.133.1",
+    "fawltydeps>=0.20.0",
     "mypy-protobuf>=5.0.0",
+    "pyright>=1.1.408",
+    "ruff>=0.15.10",
 ]
 
 [tool.alembic]
@@ -42,3 +47,12 @@ exclude = [
     "**/*_pb2.pyi",
 ]
 reportIncompatibleVariableOverride = false
+
+[tool.fawltydeps]
+ignore_unused = [
+    "psycopg",
+    "ruff",
+    "pyright",
+    "fawltydeps",
+    "mypy-protobuf"
+]

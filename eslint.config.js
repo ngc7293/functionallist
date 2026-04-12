@@ -17,6 +17,11 @@ export default ts.config(
     languageOptions: {
       parserOptions: { parser: ts.parser },
     },
+    rules: {
+      "@typescript-eslint/no-unused-vars": ["error", {
+        varsIgnorePattern: "^_",
+      }]
+    }
   },
   { ignores: ["dist"] },
 );
