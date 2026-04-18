@@ -3,6 +3,7 @@
   import { apiFetch } from "./api";
   import {
     FunctionalList,
+    FunctionalListCheckpointItem,
     FunctionalListEvent,
     FunctionalListEventCreateRequest,
     FunctionalListUpdateRequest,
@@ -56,14 +57,24 @@
   let editValue = $state("");
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let eventsExpanded = $state(false);
 
-  // Merge events: latest event per display_name wins. Checked items sort first.
-  function compile(events: FunctionalListEvent[]): [Map<number, ListItem>, ListEvent[]] {
+  // Merge events: latest event per display_name wins.
+  function compile(items: FunctionalListCheckpointItem[], events: FunctionalListEvent[]): [Map<number, ListItem>, ListEvent[]] {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const compiledItems = new Map<number, ListItem>();
     const sorted = [...events].sort((a, b) => a.occuredAt - b.occuredAt);
 
     let compiledEvents: ListEvent[] = [];
+
+    for (const item of items) {
+      compiledItems.set(item.itemId, {
+        itemId: item.itemId,
+        displayName: item.displayName,
+        checked: item.checked,
+        last_modified: item.occuredAt,
+      });
+    }
 
     for (const ev of sorted) {
       const existing = compiledItems.get(ev.itemId);
@@ -130,15 +141,17 @@
     return [compiledItems, compiledEvents.sort((a, b) => b.occuredAt - a.occuredAt)];
   }
 
-  function sortItems(items: Map<number, ListItem>): ListItem[] {
-    return Array.from(items.values()).sort((a, b) => {
-      if (a.checked === b.checked) {
-        if (a.checked) return b.last_modified - a.last_modified;
+  function filterSortItems(items: Map<number, ListItem>, checked: boolean): ListItem[] {
+    return Array.from(items.values())
+      .filter((item) => item.checked === checked)
+      .sort((a, b) => {
+        if (checked) return b.last_modified - a.last_modified;
         else return a.displayName.localeCompare(b.displayName);
-      }
-      return a.checked ? 1 : -1;
-    });
+      });
   }
+
+  const uncheckedItems = $derived(filterSortItems(listItems, false));
+  const checkedItems = $derived(filterSortItems(listItems, true));
 
   function formatDate(ts: number): string {
     return new Date(ts * 1000).toLocaleString();
@@ -147,12 +160,13 @@
   async function load() {
     error = null;
     try {
-      const res = await apiFetch(`v1/lists/${listId}`);
+      const checkpoint = eventsExpanded ? 0 : Math.floor(Date.now() / 1000) - 86400;
+      const res = await apiFetch(`v1/lists/${listId}?checkpoint=${checkpoint}`);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 
       listData = FunctionalList.decode(await res.bytes());
       listUsers = new Map(listData.users.map((u) => [u.id, u.displayName]));
-      [listItems, listEvents] = compile(listData.events);
+      [listItems, listEvents] = compile(listData.checkpoint?.items || [], listData.events);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
@@ -289,37 +303,39 @@
       >{listData.description.length ? listData.description : "No description provided."}</span
     >
   {/if}
+  {#snippet itemRow(item: ListItem)}
+    <li class="item-row" class:checked={item.checked}>
+      <input type="checkbox" checked={item.checked} onchange={() => toggleItem(item)} />
+      {#if editingItem === item.itemId}
+        <input
+          class="edit-input"
+          type="text"
+          bind:value={editValue}
+          onblur={() => commitRename(item.itemId, item.displayName)}
+          onkeydown={(e) => {
+            if (e.key === "Enter") commitRename(item.itemId, item.displayName);
+            if (e.key === "Escape") editingItem = null;
+          }}
+        />
+      {:else}
+        <span
+          class="item-name"
+          role="button"
+          tabindex="0"
+          ondblclick={() => startEditing(item)}
+          onkeydown={(e) => {
+            if (e.key === "Enter") startEditing(item);
+          }}>{item.displayName}</span
+        >
+      {/if}
+      <button class="delete-item" onclick={() => postEvent(item.itemId, undefined, undefined)}>✖</button>
+    </li>
+  {/snippet}
   <ul class="item-list">
-    {#each sortItems(listItems) as item (item.itemId)}
-      <li class="item-row" class:checked={item.checked}>
-        <input type="checkbox" checked={item.checked} onchange={() => toggleItem(item)} />
-        {#if editingItem === item.itemId}
-          <input
-            class="edit-input"
-            type="text"
-            bind:value={editValue}
-            onblur={() => commitRename(item.itemId, item.displayName)}
-            onkeydown={(e) => {
-              if (e.key === "Enter") commitRename(item.itemId, item.displayName);
-              if (e.key === "Escape") editingItem = null;
-            }}
-          />
-        {:else}
-          <span
-            class="item-name"
-            role="button"
-            tabindex="0"
-            ondblclick={() => startEditing(item)}
-            onkeydown={(e) => {
-              if (e.key === "Enter") startEditing(item);
-            }}>{item.displayName}</span
-          >
-        {/if}
-        <button class="delete-item" tabindex="0" onclick={() => postEvent(item.itemId, undefined, undefined)}>✖</button>
-      </li>
+    {#each uncheckedItems as item (item.itemId)}
+      {@render itemRow(item)}
     {/each}
   </ul>
-
   <form
     class="add-form"
     onsubmit={(e) => {
@@ -367,9 +383,20 @@
     </div>
     <button type="submit">Add</button>
   </form>
+  <ul class="item-list">
+    {#each checkedItems as item (item.itemId)}
+      {@render itemRow(item)}
+    {/each}
+  </ul>
 
-  <details class="events-section">
-    <summary>Events ({listData.events.length})</summary>
+  <details
+    class="events-section"
+    ontoggle={(e) => {
+      eventsExpanded = (e.target as HTMLDetailsElement).open;
+      load();
+    }}
+  >
+    <summary>Events ({eventsExpanded ? listData.events.length : "more than " + listData.events.length})</summary>
     <ol class="event-list">
       {#each listEvents as ev (ev.eventId)}
         <li class="event-row">

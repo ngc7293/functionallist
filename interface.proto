@@ -34,6 +34,7 @@ message FunctionalListCheckpointItem {
   int64  item_id      = 1;
   string display_name = 2;
   bool   checked      = 3;
+  int64  occured_at   = 4; // Unix Timestamp
 }
 
 message FunctionalListEvent {

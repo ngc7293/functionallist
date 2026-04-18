@@ -15,8 +15,10 @@ from .auth import get_current_user
 from .database import database
 from .interface_pb2 import (
     FunctionalList,
+    FunctionalListCheckpointItem,
     FunctionalListCreateRequest,
     FunctionalListEvent,
+    FunctionalListCheckpoint,
     FunctionalListEventCreateRequest,
     FunctionalListListResponse,
     FunctionalListMeta,
@@ -100,8 +102,32 @@ async def list_lists(user: UserModel = Depends(get_current_user)) -> Response:
     )
 
 
+def compile(events: list[ListEventModel]) -> FunctionalListCheckpoint:
+    compiled: dict[int, FunctionalListCheckpointItem] = {}
+
+    for event in sorted(events, key=lambda e: e.occured_at):
+        existing = compiled.get(event.item_id)
+
+        if not existing:
+            compiled[event.item_id] = FunctionalListCheckpointItem(
+                item_id=event.item_id,
+                display_name=event.display_name or "",
+                checked=event.checked or False,
+                occured_at=int(event.occured_at.timestamp()),
+            )
+        elif event.display_name is None and event.checked is None:
+            del compiled[event.item_id]
+        else:
+            existing.display_name = event.display_name if event.display_name is not None else existing.display_name
+            existing.checked = event.checked if event.checked is not None else existing.checked 
+            existing.occured_at = int(event.occured_at.timestamp())
+
+    return FunctionalListCheckpoint(items=list(compiled.values()))
+
+
+
 @app.get("/v1/lists/{list_id}")
-async def get_list(list_id: int, user: UserModel = Depends(get_current_user)) -> Response:
+async def get_list(list_id: int, checkpoint: int | None = None, user: UserModel = Depends(get_current_user)) -> Response:
     with database.session() as session:
         query = (
             select(ListModel)
@@ -119,6 +145,15 @@ async def get_list(list_id: int, user: UserModel = Depends(get_current_user)) ->
         if list_ is None:
             raise HTTPException(status_code=404)
 
+
+    checkpoint_time = datetime.fromtimestamp(checkpoint, UTC) if checkpoint else datetime.min.replace(tzinfo=UTC)
+
+    if checkpoint is not None:
+        checkpoint_state = compile([e for e in list_.events if e.occured_at.replace(tzinfo=UTC) <= checkpoint_time])
+        checkpoint_state.until = checkpoint
+    else:
+        checkpoint_state = None
+
     return Response(
         status_code=200,
         media_type="application/protobuf",
@@ -126,6 +161,7 @@ async def get_list(list_id: int, user: UserModel = Depends(get_current_user)) ->
             id=list_.id,
             display_name=list_.display_name,
             description=list_.description,
+            checkpoint=checkpoint_state,
             events=[
                 FunctionalListEvent(
                     item_id=event.item_id,
@@ -134,7 +170,7 @@ async def get_list(list_id: int, user: UserModel = Depends(get_current_user)) ->
                     occured_at=int(event.occured_at.timestamp()),
                     user_id=event.user_id,
                 )
-                for event in list_.events
+                for event in list_.events if event.occured_at.replace(tzinfo=UTC) > checkpoint_time
             ],
             users=[
                 UserMeta(
