@@ -141,17 +141,15 @@
     return [compiledItems, compiledEvents.sort((a, b) => b.occuredAt - a.occuredAt)];
   }
 
-  function filterSortItems(items: Map<number, ListItem>, checked: boolean): ListItem[] {
-    return Array.from(items.values())
-      .filter((item) => item.checked === checked)
-      .sort((a, b) => {
-        if (checked) return b.last_modified - a.last_modified;
+  function sortItems(items: Map<number, ListItem>): ListItem[] {
+    return Array.from(items.values()).sort((a, b) => {
+      if (a.checked === b.checked) {
+        if (a.checked) return b.last_modified - a.last_modified;
         else return a.displayName.localeCompare(b.displayName);
-      });
+      }
+      return a.checked ? 1 : -1;
+    });
   }
-
-  const uncheckedItems = $derived(filterSortItems(listItems, false));
-  const checkedItems = $derived(filterSortItems(listItems, true));
 
   function formatDate(ts: number): string {
     return new Date(ts * 1000).toLocaleString();
@@ -303,37 +301,34 @@
       >{listData.description.length ? listData.description : "No description provided."}</span
     >
   {/if}
-  {#snippet itemRow(item: ListItem)}
-    <li class="item-row" class:checked={item.checked}>
-      <input type="checkbox" checked={item.checked} onchange={() => toggleItem(item)} />
-      {#if editingItem === item.itemId}
-        <input
-          class="edit-input"
-          type="text"
-          bind:value={editValue}
-          onblur={() => commitRename(item.itemId, item.displayName)}
-          onkeydown={(e) => {
-            if (e.key === "Enter") commitRename(item.itemId, item.displayName);
-            if (e.key === "Escape") editingItem = null;
-          }}
-        />
-      {:else}
-        <span
-          class="item-name"
-          role="button"
-          tabindex="0"
-          ondblclick={() => startEditing(item)}
-          onkeydown={(e) => {
-            if (e.key === "Enter") startEditing(item);
-          }}>{item.displayName}</span
-        >
-      {/if}
-      <button class="delete-item" onclick={() => postEvent(item.itemId, undefined, undefined)}>✖</button>
-    </li>
-  {/snippet}
   <ul class="item-list">
-    {#each uncheckedItems as item (item.itemId)}
-      {@render itemRow(item)}
+    {#each sortItems(listItems) as item (item.itemId)}
+      <li class="item-row" class:checked={item.checked}>
+        <input type="checkbox" checked={item.checked} onchange={() => toggleItem(item)} />
+        {#if editingItem === item.itemId}
+          <input
+            class="edit-input"
+            type="text"
+            bind:value={editValue}
+            onblur={() => commitRename(item.itemId, item.displayName)}
+            onkeydown={(e) => {
+              if (e.key === "Enter") commitRename(item.itemId, item.displayName);
+              if (e.key === "Escape") editingItem = null;
+            }}
+          />
+        {:else}
+          <span
+            class="item-name"
+            role="button"
+            tabindex="0"
+            ondblclick={() => startEditing(item)}
+            onkeydown={(e) => {
+              if (e.key === "Enter") startEditing(item);
+            }}>{item.displayName}</span
+          >
+        {/if}
+        <button class="delete-item" onclick={() => postEvent(item.itemId, undefined, undefined)}>✖</button>
+      </li>
     {/each}
   </ul>
   <form
@@ -344,6 +339,22 @@
     }}
   >
     <div class="add-input-wrapper">
+      {#if newItemNameSuggestions.length !== 0}
+        <ul class="suggestion-list">
+          {#each newItemNameSuggestions as [itemId, displayName], i (itemId)}
+            <li>
+              <button
+                type="button"
+                class:highlighted={i === selectedSuggestionIndex}
+                onmouseenter={() => {
+                  selectedSuggestionIndex = i;
+                }}
+                onclick={() => selectSuggestion(itemId)}>{displayName}</button
+              >
+            </li>
+          {/each}
+        </ul>
+      {/if}
       <input
         class="add-input"
         type="text"
@@ -364,30 +375,9 @@
         }}
         placeholder="New item…"
       />
-      {#if newItemNameSuggestions.length !== 0}
-        <ul class="suggestion-list">
-          {#each newItemNameSuggestions as [itemId, displayName], i (itemId)}
-            <li>
-              <button
-                type="button"
-                class:highlighted={i === selectedSuggestionIndex}
-                onmouseenter={() => {
-                  selectedSuggestionIndex = i;
-                }}
-                onclick={() => selectSuggestion(itemId)}>{displayName}</button
-              >
-            </li>
-          {/each}
-        </ul>
-      {/if}
     </div>
     <button type="submit">Add</button>
   </form>
-  <ul class="item-list">
-    {#each checkedItems as item (item.itemId)}
-      {@render itemRow(item)}
-    {/each}
-  </ul>
 
   <details
     class="events-section"
@@ -511,6 +501,12 @@
     display: flex;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid #d4d4d8;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+    border-radius: 0 0 10px 10px;
   }
   .add-input-wrapper {
     position: relative;
@@ -527,7 +523,8 @@
   }
   .suggestion-list {
     position: absolute;
-    top: calc(100% + 4px);
+    bottom: calc(100% + 4px);
+    top: auto;
     left: 0;
     right: 0;
     z-index: 10;
