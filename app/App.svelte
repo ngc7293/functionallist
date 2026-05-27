@@ -117,12 +117,11 @@
     </main>
   </div>
 {:else}
-  <div class="app">
-    <header>
-      <span>You are not signed in</span>
-      <button class="button-link" onclick={login}>Sign in</button>
-    </header>
-  </div>
+  <header>
+    <span></span>
+    <span>Redirecting to sign in…</span>
+    <span></span>
+  </header>
 {/if}
 
 <style>

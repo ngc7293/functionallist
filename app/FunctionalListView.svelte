@@ -59,6 +59,103 @@
   let error = $state<string | null>(null);
   let eventsExpanded = $state(false);
 
+  let activeItemId = $state<number | null>(null);
+  let popoverAnchor = $state<{ top: number; left: number } | null>(null);
+  let isTouch = $state(false);
+  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  let showTimer: ReturnType<typeof setTimeout> | null = null;
+  let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+  let activeItemEvents = $derived(
+    activeItemId !== null ? listEvents.filter((ev) => ev.itemId === activeItemId) : [],
+  );
+
+  $effect(() => {
+    if (activeItemId !== null && !listItems.has(activeItemId)) closePopover();
+  });
+
+  function openPopover(itemId: number, el: HTMLElement) {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+    if (showTimer) {
+      clearTimeout(showTimer);
+      showTimer = null;
+    }
+    const rect = el.getBoundingClientRect();
+    activeItemId = itemId;
+    popoverAnchor = { top: rect.top, left: rect.left };
+  }
+
+  function closePopover() {
+    activeItemId = null;
+    popoverAnchor = null;
+  }
+
+  function scheduleClose() {
+    hideTimer = setTimeout(() => closePopover(), 150);
+  }
+
+  function cancelClose() {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  }
+
+  function cancelShow() {
+    if (showTimer) {
+      clearTimeout(showTimer);
+      showTimer = null;
+    }
+  }
+
+  function onItemPointerDown(itemId: number, e: PointerEvent) {
+    if (!isTouch) return;
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    longPressTimer = setTimeout(() => { longPressTimer = null; openPopover(itemId, el); }, 500);
+  }
+
+  function onItemPointerMove(e: PointerEvent) {
+    if (!isTouch) return;
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      return;
+    }
+    if (activeItemId === null) return;
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-item-id]");
+    if (row?.dataset.itemId) {
+      const itemId = parseInt(row.dataset.itemId);
+      if (itemId !== activeItemId) openPopover(itemId, row);
+    }
+  }
+
+  function cancelLongPress() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    } else if (isTouch && activeItemId !== null) {
+      closePopover();
+    }
+  }
+
+  function onItemMouseEnter(itemId: number, e: MouseEvent) {
+    if (isTouch) return;
+    cancelClose();
+    cancelShow();
+    const el = e.currentTarget as HTMLElement;
+    showTimer = setTimeout(() => openPopover(itemId, el), 500);
+  }
+
+  function onItemMouseLeave() {
+    if (isTouch) return;
+    cancelShow();
+    scheduleClose();
+  }
+
   // Merge events: latest event per display_name wins.
   function compile(items: FunctionalListCheckpointItem[], events: FunctionalListEvent[]): [Map<number, ListItem>, ListEvent[]] {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity
@@ -155,10 +252,26 @@
     return new Date(ts * 1000).toLocaleString();
   }
 
+  function formatRelativeTime(ts: number): string {
+    const date = new Date(ts * 1000);
+    const seconds = Math.round((ts * 1000 - Date.now()) / 1000);
+    const abs = Math.abs(seconds);
+    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+    const isToday = date.toDateString() === new Date().toDateString();
+
+    let relative: string;
+    if (isToday)           relative = "today";
+    else if (abs < 604800) relative = rtf.format(Math.round(seconds / 86400), "day");
+    else                   relative = date.toLocaleDateString();
+
+    const time = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+    return `${relative}, ${time}`;
+  }
+
   async function load() {
     error = null;
     try {
-      const checkpoint = eventsExpanded ? 0 : Math.floor(Date.now() / 1000) - 86400;
+      const checkpoint = eventsExpanded ? 0 : Math.floor(Date.now() / 1000) - (7 * 86400);
       const res = await apiFetch(`v1/lists/${listId}?checkpoint=${checkpoint}`);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 
@@ -271,6 +384,7 @@
   }
 
   onMount(() => {
+    isTouch = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
     load();
     const refreshInterval = setInterval(load, 5000);
     return () => clearInterval(refreshInterval);
@@ -303,7 +417,17 @@
   {/if}
   <ul class="item-list">
     {#each sortItems(listItems) as item (item.itemId)}
-      <li class="item-row" class:checked={item.checked}>
+      <li
+        class="item-row"
+        class:checked={item.checked}
+        onpointerdown={(e) => onItemPointerDown(item.itemId, e)}
+        data-item-id={item.itemId}
+        onpointerup={cancelLongPress}
+        onpointermove={onItemPointerMove}
+        oncontextmenu={(e) => { if (isTouch) e.preventDefault(); }}
+        onmouseenter={(e) => onItemMouseEnter(item.itemId, e)}
+        onmouseleave={onItemMouseLeave}
+      >
         <input type="checkbox" checked={item.checked} onchange={() => toggleItem(item)} />
         {#if editingItem === item.itemId}
           <input
@@ -331,6 +455,49 @@
       </li>
     {/each}
   </ul>
+
+  {#if activeItemId !== null && popoverAnchor !== null}
+    {#if isTouch}
+      <div class="popover-backdrop" onclick={closePopover}></div>
+    {/if}
+    <div
+      class="item-popover"
+      role="tooltip"
+      style="top: {popoverAnchor.top}px; left: {popoverAnchor.left}px;"
+      onmouseenter={() => { cancelClose(); cancelShow(); }}
+      onmouseleave={scheduleClose}
+    >
+      <div class="popover-header">{listItems.get(activeItemId)?.displayName ?? ""}</div>
+      {#if activeItemEvents.length === 0}
+        <div class="popover-empty">No recent events.</div>
+      {:else}
+        <ol class="popover-event-list">
+          {#each activeItemEvents as ev (ev.eventId)}
+            <li class="popover-event-row">
+              <time class="popover-event-time">{formatRelativeTime(ev.occuredAt)}</time>
+              <div class="popover-event-content">
+                {#if ev.modification.type === "add"}
+                  <span class="event-type">+</span>
+                  <span>{ev.modification.displayName}</span>
+                {:else if ev.modification.type === "rename"}
+                  <span class="event-type">✎</span>
+                  <span>{ev.modification.displayNameBefore} → {ev.modification.displayNameAfter}</span>
+                {:else if ev.modification.type === "check"}
+                  <span class="event-type">{ev.modification.checked ? "☑︎" : "☐"}</span>
+                  <span>{ev.modification.displayName}</span>
+                {:else if ev.modification.type === "remove"}
+                  <span class="event-type">×</span>
+                  <span>{ev.modification.displayName}</span>
+                {/if}
+                <span class="popover-event-user">{listUsers.get(ev.userId) ?? ""}</span>
+              </div>
+            </li>
+          {/each}
+        </ol>
+      {/if}
+    </div>
+  {/if}
+
   <form
     class="add-form"
     onsubmit={(e) => {
@@ -658,5 +825,74 @@
     .event-user {
       order: unset;
     }
+  }
+
+  .popover-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+  }
+
+  .item-popover {
+    position: fixed;
+    z-index: 20;
+    transform: translateY(-100%) translateX(32px);
+    background: #fff;
+    border: 1px solid #d4d4d8;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    width: 260px;
+    max-height: 320px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+  }
+
+  .popover-header {
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #18181b;
+    border-bottom: 1px solid #e4e4e7;
+  }
+
+  .popover-empty {
+    padding: 0.5rem 0.75rem;
+    color: #a1a1aa;
+    font-style: italic;
+  }
+
+  .popover-event-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0;
+  }
+
+  .popover-event-row {
+    padding: 0.3rem 0.75rem;
+    border-top: 1px solid #f4f4f5;
+    color: #52525b;
+  }
+  .popover-event-row:first-child {
+    border-top: none;
+  }
+
+  .popover-event-time {
+    display: block;
+    color: #a1a1aa;
+    font-size: 0.75rem;
+    margin-bottom: 0.1rem;
+  }
+
+  .popover-event-content {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+
+  .popover-event-user {
+    margin-left: auto;
+    color: #a1a1aa;
+    white-space: nowrap;
+    font-size: 0.75rem;
   }
 </style>
